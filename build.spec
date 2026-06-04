@@ -1,19 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
-
 block_cipher = None
 
-_pyvban_hidden = [
-    m
-    for m in collect_submodules("pyvban")
-    if not m.startswith("pyvban.utils")
-]
 
 def _sounddevice_datas():
     try:
         import sounddevice
+
         sd_dir = Path(sounddevice.__file__).resolve().parent
         data_dir = sd_dir / "_sounddevice_data"
         if data_dir.is_dir():
@@ -22,25 +16,25 @@ def _sounddevice_datas():
         pass
     return []
 
+
 a = Analysis(
     ["app.py"],
     pathex=[],
     binaries=[],
-    datas=_sounddevice_datas()
-    + [(str(Path("_stubs")), "_stubs")],
+    datas=_sounddevice_datas(),
     hiddenimports=[
         "customtkinter",
         "numpy",
         "sounddevice",
         "_sounddevice_data",
-        * _pyvban_hidden,
+        "core.vban_packet",
         "core.devices",
         "core.session",
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["pyaudio", "pyvban.utils"],
+    excludes=["pyaudio", "pyvban"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

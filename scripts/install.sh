@@ -13,7 +13,6 @@ source .venv/bin/activate
 
 pip install --upgrade pip
 pip install -r requirements.txt
-pip install -r requirements-vban.txt --no-deps
 
 if ! python -c "import tkinter" 2>/dev/null; then
   echo "AVISO: tkinter não encontrado. No Debian/Ubuntu instale:"

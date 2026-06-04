@@ -1,16 +1,5 @@
 import os
 import sys
-from pathlib import Path
-
-def _stubs_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS) / "_stubs"
-    return Path(__file__).resolve().parent / "_stubs"
-
-
-_stubs = _stubs_dir()
-if _stubs.is_dir():
-    sys.path.insert(0, str(_stubs))
 
 if getattr(sys, "frozen", False) and sys.platform == "win32":
     meipass = getattr(sys, "_MEIPASS", None)

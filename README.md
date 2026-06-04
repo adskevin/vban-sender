@@ -10,12 +10,6 @@ sudo apt install python3-venv python3-tk libportaudio2
 
 `python3-tk` é obrigatório — o CustomTkinter usa Tkinter, que não vem via pip.
 
-Opcional (se quiser instalar o pacote `pyVBAN` completo com PyAudio):
-
-```bash
-sudo apt install portaudio19-dev
-```
-
 ## Executar em desenvolvimento
 
 ```bash
@@ -25,14 +19,7 @@ source .venv/bin/activate
 python app.py
 ```
 
-Ou manualmente (não use `pip install pyVBAN` sozinho — ele tenta compilar **PyAudio**):
-
-```bash
-pip install -r requirements.txt
-pip install -r requirements-vban.txt --no-deps
-```
-
-O projeto usa `pyVBAN` apenas para montar pacotes de áudio. Um stub em `_stubs/pyaudio` evita compilar PyAudio no Linux (a captura é feita com `sounddevice`).
+Os pacotes VBAN são montados em [`core/vban_packet.py`](core/vban_packet.py) (compatível com o protocolo [pyVBAN](https://pypi.org/project/pyVBAN/); o pacote PyPI não é necessário para rodar o app).
 
 As configurações são salvas em `~/.config/vban-emitter/config.json` (dev) ou ao lado do `.exe` (Windows).
 
@@ -82,7 +69,8 @@ No Windows, o executável salva `config.json` na mesma pasta do `.exe`.
 
 ```
 app.py              # Entry point
-core/emitter.py     # Captura (sounddevice) e envio VBAN (pyVBAN)
+core/emitter.py     # Captura (sounddevice) e envio VBAN
+core/vban_packet.py # Montagem de pacotes VBAN
 core/session.py     # Orquestra múltiplas faixas
 core/devices.py     # Listagem de dispositivos desktop/mic
 core/config.py      # Persistência JSON

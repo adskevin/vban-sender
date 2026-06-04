@@ -1,3 +1,0 @@
-# Protocolo VBAN — instalar sem puxar PyAudio (captura usa sounddevice):
-#   pip install -r requirements-vban.txt --no-deps
-pyVBAN

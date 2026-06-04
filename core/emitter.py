@@ -1,22 +1,16 @@
 import queue
 import socket
-import sys
 import threading
 import time
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import sounddevice as sd
 
-_stubs = Path(__file__).resolve().parent.parent / "_stubs"
-if _stubs.is_dir() and str(_stubs) not in sys.path:
-    sys.path.insert(0, str(_stubs))
-
-import pyvban.const
-from pyvban.subprotocols.audio import VBANAudioHeader
-from pyvban.subprotocols.audio.const import (
+from core.vban_packet import (
+    VBAN_PROTOCOL_MAX_SIZE,
+    VBANAudioHeader,
     VBANBitResolution,
     VBANCodec,
     VBANSampleRates,
@@ -141,7 +135,7 @@ class VBANEmitter:
             stream_name=self._stream_name,
             frame_counter=self._counter,
         )
-        packet = (header.to_bytes() + pcm)[: pyvban.const.VBAN_PROTOCOL_MAX_SIZE]
+        packet = (header.to_bytes() + pcm)[:VBAN_PROTOCOL_MAX_SIZE]
         try:
             self._sock.sendto(packet, (self._receiver_ip, self._receiver_port))
         except OSError as exc:
