@@ -28,8 +28,8 @@ def _config_dir() -> Path:
         return Path(sys.executable).resolve().parent
     xdg = os.environ.get("XDG_CONFIG_HOME")
     if xdg:
-        return Path(xdg) / "vban-emitter"
-    return Path.home() / ".config" / "vban-emitter"
+        return Path(xdg) / "vban-sender"
+    return Path.home() / ".config" / "vban-sender"
 
 
 def config_path() -> Path:

@@ -1,10 +1,9 @@
 name: Build Windows EXE
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main, master]
-    tags: ["v*"]
+    tags:
+      - "v*"
 
 jobs:
   build:
@@ -27,5 +26,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VBANEmitter-windows
-          path: dist/VBANEmitter.exe
+          name: VBANSender-windows
+          path: dist/VBANSender.exe
