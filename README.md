@@ -47,12 +47,7 @@ No PC receptor (OBS), adicione **duas fontes VBAN** — uma para cada nome de st
 
 ## Build do executável Windows (`VBANSender.exe`)
 
-O build no GitHub Actions roda **somente ao publicar uma versão** (push de tag `v*`, ex.: `v1.0.0`).
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+O build no GitHub Actions roda **automaticamente em cada push na branch `main`**.
 
 Na aba **Actions**, baixe o artefato `VBANSender-windows` com o `VBANSender.exe`.
 
@@ -61,10 +56,10 @@ Na aba **Actions**, baixe o artefato `VBANSender-windows` com o `VBANSender.exe`
 Com o [GitHub CLI](https://cli.github.com/) autenticado:
 
 ```bash
-./scripts/build-windows.sh v1.0.0
+./scripts/build-windows.sh
 ```
 
-O script envia a tag, aguarda o workflow e baixa `dist/VBANSender.exe`.
+O script dispara o workflow na `main`, aguarda a conclusão e baixa `dist/VBANSender.exe`.
 
 No Windows, o executável salva `config.json` na mesma pasta do `.exe`.
 
