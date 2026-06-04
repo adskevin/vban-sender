@@ -1,4 +1,5 @@
 import ipaddress
+import sys
 import tkinter as tk
 
 import customtkinter as ctk
@@ -46,6 +47,7 @@ class MainWindow(ctk.CTk):
         self._levels: dict[str, float] = {TRACK_DESKTOP: 0.0, TRACK_MIC: 0.0}
         self._meter_poll_id: str | None = None
 
+        self._scroll: ctk.CTkScrollableFrame | None = None
         self._build_ui()
         self._load_device_lists()
         self._apply_saved_config()
@@ -57,6 +59,7 @@ class MainWindow(ctk.CTk):
         pad = {"padx": 16, "pady": 4}
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=8, pady=8)
+        self._scroll = scroll
 
         ctk.CTkLabel(scroll, text="IP do receptor", anchor="w").pack(fill="x", **pad)
         self._ip_entry = ctk.CTkEntry(scroll, placeholder_text="192.168.1.100")
@@ -100,6 +103,40 @@ class MainWindow(ctk.CTk):
             footer, text=STATUS_STOPPED[0], text_color=STATUS_STOPPED[1]
         )
         self._status_label.pack()
+
+        self._setup_mousewheel_scroll()
+
+    def _scroll_delta(self, event: tk.Event) -> int:
+        if event.num == 5:
+            return 1
+        if event.num == 4:
+            return -1
+        if not event.delta:
+            return 0
+        if sys.platform == "darwin":
+            return -int(event.delta)
+        return -int(event.delta / 120)
+
+    def _on_mousewheel_scroll(self, event: tk.Event) -> str | None:
+        if self._scroll is None:
+            return None
+        delta = self._scroll_delta(event)
+        if delta:
+            self._scroll._parent_canvas.yview_scroll(delta, "units")
+        return "break"
+
+    def _bind_mousewheel_recursive(self, widget: tk.Misc) -> None:
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            widget.bind(sequence, self._on_mousewheel_scroll, add="+")
+        for child in widget.winfo_children():
+            self._bind_mousewheel_recursive(child)
+
+    def _setup_mousewheel_scroll(self) -> None:
+        if self._scroll is None:
+            return
+        self._bind_mousewheel_recursive(self._scroll)
+        self._bind_mousewheel_recursive(self._scroll._parent_canvas)
+        self._bind_mousewheel_recursive(self._scroll._parent_frame)
 
     def _build_track_section(
         self,
