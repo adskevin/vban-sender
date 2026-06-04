@@ -1,0 +1,5 @@
+customtkinter
+sounddevice
+numpy
+pyinstaller
+pyinstaller-hooks-contrib
