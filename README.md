@@ -21,7 +21,7 @@ python app.py
 
 Os pacotes VBAN são montados em [`core/vban_packet.py`](core/vban_packet.py) (compatível com o protocolo [pyVBAN](https://pypi.org/project/pyVBAN/); o pacote PyPI não é necessário para rodar o app).
 
-As configurações são salvas em `~/.config/vban-sender/config.json` (dev) ou ao lado do `.exe` (Windows).
+As configurações são salvas automaticamente ao editar qualquer campo em `~/.config/vban-sender/config.json` (dev) ou ao lado do `.exe` (Windows). Durante a transmissão, os campos ficam bloqueados para edição.
 
 ## Uso — duas faixas
 

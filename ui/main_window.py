@@ -30,6 +30,7 @@ STATUS_ERROR = ("Erro: {msg}", "#e74c3c")
 
 TRACK_DESKTOP = "desktop"
 TRACK_MIC = "mic"
+PERSIST_DEBOUNCE_MS = 400
 
 
 class MainWindow(ctk.CTk):
@@ -47,10 +48,13 @@ class MainWindow(ctk.CTk):
         self._transmitting = False
         self._levels: dict[str, float] = {TRACK_DESKTOP: 0.0, TRACK_MIC: 0.0}
         self._meter_poll_id: str | None = None
+        self._persist_timer_id: str | None = None
+        self._suppress_save = False
 
         self._scroll: ctk.CTkScrollableFrame | None = None
         self._build_ui()
         self._load_device_lists()
+        self._setup_auto_save()
         self._apply_saved_config()
         self._update_track_controls_state()
 
@@ -161,7 +165,7 @@ class MainWindow(ctk.CTk):
             frame,
             text=checkbox_text,
             variable=enabled_var,
-            command=self._update_track_controls_state,
+            command=self._on_track_enabled_changed,
         )
         checkbox.pack(anchor="w", padx=12, pady=4)
 
@@ -225,17 +229,21 @@ class MainWindow(ctk.CTk):
             self._set_status_error(str(exc))
 
     def _apply_saved_config(self) -> None:
-        cfg = load_config()
+        self._suppress_save = True
+        try:
+            cfg = load_config()
 
-        if cfg["receiver_ip"]:
-            self._ip_entry.delete(0, tk.END)
-            self._ip_entry.insert(0, cfg["receiver_ip"])
+            if cfg["receiver_ip"]:
+                self._ip_entry.delete(0, tk.END)
+                self._ip_entry.insert(0, cfg["receiver_ip"])
 
-        self._port_entry.delete(0, tk.END)
-        self._port_entry.insert(0, str(cfg["port"]))
+            self._port_entry.delete(0, tk.END)
+            self._port_entry.insert(0, str(cfg["port"]))
 
-        self._apply_track_config(self._desktop_frame, cfg["desktop"])
-        self._apply_track_config(self._mic_frame, cfg["mic"])
+            self._apply_track_config(self._desktop_frame, cfg["desktop"])
+            self._apply_track_config(self._mic_frame, cfg["mic"])
+        finally:
+            self._suppress_save = False
 
     def _apply_track_config(self, track_ui: dict, track_cfg: dict) -> None:
         track_ui["enabled_var"].set(track_cfg["enabled"])
@@ -259,10 +267,25 @@ class MainWindow(ctk.CTk):
         track_ui["combo"].configure(state=state)
         track_ui["stream_entry"].configure(state=entry_state)
 
+    def _parse_port(self) -> int | None:
+        raw = self._port_entry.get().strip()
+        if not raw:
+            return None
+        try:
+            port = int(raw)
+        except ValueError:
+            return None
+        if 1 <= port <= 65535:
+            return port
+        return None
+
     def _build_config_from_ui(self) -> AppConfig:
+        port = self._parse_port()
+        if port is None:
+            raise ValueError("Porta inválida")
         return {
             "receiver_ip": self._ip_entry.get().strip(),
-            "port": int(self._port_entry.get().strip()),
+            "port": port,
             "desktop": {
                 "enabled": self._desktop_frame["enabled_var"].get(),
                 "device_name": self._desktop_frame["combo"].get(),
@@ -275,6 +298,67 @@ class MainWindow(ctk.CTk):
             },
         }
 
+    def _persist_config(self) -> None:
+        if self._suppress_save or self._transmitting:
+            return
+        port = self._parse_port()
+        if port is None:
+            return
+        save_config(
+            {
+                "receiver_ip": self._ip_entry.get().strip(),
+                "port": port,
+                "desktop": {
+                    "enabled": self._desktop_frame["enabled_var"].get(),
+                    "device_name": self._desktop_frame["combo"].get(),
+                    "stream_name": self._desktop_frame["stream_entry"]
+                    .get()
+                    .strip(),
+                },
+                "mic": {
+                    "enabled": self._mic_frame["enabled_var"].get(),
+                    "device_name": self._mic_frame["combo"].get(),
+                    "stream_name": self._mic_frame["stream_entry"].get().strip(),
+                },
+            }
+        )
+
+    def _persist_config_debounced(self) -> None:
+        self._persist_timer_id = None
+        self._persist_config()
+
+    def _schedule_persist(self, _event: tk.Event | None = None) -> None:
+        if self._suppress_save or self._transmitting:
+            return
+        if self._persist_timer_id is not None:
+            self.after_cancel(self._persist_timer_id)
+        self._persist_timer_id = self.after(
+            PERSIST_DEBOUNCE_MS, self._persist_config_debounced
+        )
+
+    def _on_device_changed(self, _choice: str = "") -> None:
+        if self._suppress_save or self._transmitting:
+            return
+        self._persist_config()
+
+    def _on_track_enabled_changed(self) -> None:
+        if self._transmitting:
+            return
+        self._update_track_controls_state()
+        self._persist_config()
+
+    def _bind_entry_auto_save(self, entry: ctk.CTkEntry) -> None:
+        entry.bind("<KeyRelease>", self._schedule_persist)
+        entry.bind("<FocusOut>", lambda _e: self._persist_config())
+
+    def _setup_auto_save(self) -> None:
+        self._bind_entry_auto_save(self._ip_entry)
+        self._bind_entry_auto_save(self._port_entry)
+        self._bind_entry_auto_save(self._desktop_frame["stream_entry"])
+        self._bind_entry_auto_save(self._mic_frame["stream_entry"])
+        self._desktop_frame["combo"].configure(command=self._on_device_changed)
+        self._mic_frame["combo"].configure(command=self._on_device_changed)
+
     def _validate(self) -> tuple[str, int, list[TrackSettings]] | None:
         ip_str = self._ip_entry.get().strip()
         try:
@@ -283,13 +367,9 @@ class MainWindow(ctk.CTk):
             self._set_status_error("IP inválido (use IPv4)")
             return None
 
-        try:
-            port = int(self._port_entry.get().strip())
-        except ValueError:
-            self._set_status_error("Porta inválida")
-            return None
-        if not 1 <= port <= 65535:
-            self._set_status_error("Porta deve estar entre 1 e 65535")
+        port = self._parse_port()
+        if port is None:
+            self._set_status_error("Porta inválida (use 1 a 65535)")
             return None
 
         tracks: list[TrackSettings] = []
@@ -369,6 +449,11 @@ class MainWindow(ctk.CTk):
         if validated is None:
             return
 
+        if self._persist_timer_id is not None:
+            self.after_cancel(self._persist_timer_id)
+            self._persist_timer_id = None
+        self._persist_config()
+
         ip_str, port, tracks = validated
 
         self._session = TransmissionSession(
@@ -389,8 +474,6 @@ class MainWindow(ctk.CTk):
         track_labels = " + ".join(t.stream_name for t in tracks)
         self._set_status_transmitting(ip_str, track_labels)
         self._set_inputs_state(disabled=True)
-
-        save_config(self._build_config_from_ui())
         self._start_meter_poll()
 
     def _stop_transmission(self) -> None:
