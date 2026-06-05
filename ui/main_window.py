@@ -109,13 +109,15 @@ class MainWindow(ctk.CTk):
 
     def _scroll_delta(self, event: tk.Event) -> int:
         if event.num == 5:
-            return 1
+            return 4
         if event.num == 4:
-            return -1
+            return -4
         if not event.delta:
             return 0
         if sys.platform == "darwin":
             return -int(event.delta)
+        if sys.platform == "win32":
+            return -int(event.delta / 6)
         return -int(event.delta / 120)
 
     def _on_mousewheel_scroll(self, event: tk.Event) -> str | None:
