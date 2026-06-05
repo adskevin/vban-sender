@@ -13,12 +13,14 @@ from core.config import (
     save_config,
 )
 from core.devices import (
-    default_desktop_device,
-    default_mic_device,
-    desktop_device_hint,
-    list_desktop_devices,
-    list_mic_devices,
-    resolve_device_index,
+    DeviceOption,
+    build_grouped_device_options,
+    capture_index_for_option,
+    combo_values,
+    default_desktop_option,
+    default_mic_option,
+    device_hint,
+    resolve_device_option,
 )
 from core.session import TrackSettings, TransmissionSession
 
@@ -41,8 +43,7 @@ class MainWindow(ctk.CTk):
         self.minsize(480, 580)
 
         self._session: TransmissionSession | None = None
-        self._desktop_devices: list[tuple[int, str]] = []
-        self._mic_devices: list[tuple[int, str]] = []
+        self._device_options: list[DeviceOption] = []
         self._transmitting = False
         self._levels: dict[str, float] = {TRACK_DESKTOP: 0.0, TRACK_MIC: 0.0}
         self._meter_poll_id: str | None = None
@@ -77,14 +78,14 @@ class MainWindow(ctk.CTk):
             title="Áudio do desktop",
             checkbox_text="Transmitir áudio do desktop",
             stream_default=DEFAULT_DESKTOP_STREAM,
-            hint=desktop_device_hint(),
+            hint=device_hint(),
         )
         self._mic_frame = self._build_track_section(
             scroll,
             title="Microfone",
             checkbox_text="Transmitir microfone",
             stream_default=DEFAULT_MIC_STREAM,
-            hint="",
+            hint=device_hint(),
         )
 
         footer = ctk.CTkFrame(self, fg_color="transparent")
@@ -201,26 +202,23 @@ class MainWindow(ctk.CTk):
 
     def _load_device_lists(self) -> None:
         try:
-            self._desktop_devices = list_desktop_devices()
-            self._mic_devices = list_mic_devices()
+            self._device_options = build_grouped_device_options()
+            names = combo_values(self._device_options)
 
-            desktop_names = [n for _, n in self._desktop_devices]
-            mic_names = [n for _, n in self._mic_devices]
+            self._desktop_frame["combo"].configure(values=names)
+            self._mic_frame["combo"].configure(values=names)
 
-            self._desktop_frame["combo"].configure(values=desktop_names)
-            self._mic_frame["combo"].configure(values=mic_names)
+            default_d = default_desktop_option(self._device_options)
+            if default_d and default_d.display_name in names:
+                self._desktop_frame["combo"].set(default_d.display_name)
+            elif names:
+                self._desktop_frame["combo"].set(names[0])
 
-            default_d = default_desktop_device()
-            if default_d and default_d[1] in desktop_names:
-                self._desktop_frame["combo"].set(default_d[1])
-            elif desktop_names:
-                self._desktop_frame["combo"].set(desktop_names[0])
-
-            default_m = default_mic_device()
-            if default_m and default_m[1] in mic_names:
-                self._mic_frame["combo"].set(default_m[1])
-            elif mic_names:
-                self._mic_frame["combo"].set(mic_names[0])
+            default_m = default_mic_option(self._device_options)
+            if default_m and default_m.display_name in names:
+                self._mic_frame["combo"].set(default_m.display_name)
+            elif names:
+                self._mic_frame["combo"].set(names[0])
         except Exception as exc:
             self._set_status_error(str(exc))
 
@@ -298,7 +296,6 @@ class MainWindow(ctk.CTk):
         if self._desktop_frame["enabled_var"].get():
             result = self._validate_track(
                 self._desktop_frame,
-                self._desktop_devices,
                 "Áudio do desktop",
                 TRACK_DESKTOP,
             )
@@ -310,7 +307,6 @@ class MainWindow(ctk.CTk):
         if self._mic_frame["enabled_var"].get():
             result = self._validate_track(
                 self._mic_frame,
-                self._mic_devices,
                 "Microfone",
                 TRACK_MIC,
             )
@@ -331,7 +327,6 @@ class MainWindow(ctk.CTk):
     def _validate_track(
         self,
         track_ui: dict,
-        candidates: list[tuple[int, str]],
         label: str,
         track_id: str,
     ) -> TrackSettings | None:
@@ -340,15 +335,22 @@ class MainWindow(ctk.CTk):
             self._set_status_error(f"{label}: nome do stream é obrigatório")
             return None
 
-        device_name = track_ui["combo"].get()
-        device_index = resolve_device_index(device_name, candidates)
-        if device_index is None:
+        display_name = track_ui["combo"].get()
+        option = resolve_device_option(display_name, self._device_options)
+        if option is None or option.is_separator:
             self._set_status_error(f"{label}: selecione um dispositivo válido")
+            return None
+
+        try:
+            capture_index = capture_index_for_option(option)
+        except ValueError as exc:
+            self._set_status_error(f"{label}: {exc}")
             return None
 
         return TrackSettings(
             enabled=True,
-            device_index=device_index,
+            device_index=capture_index,
+            device_kind=option.kind,
             stream_name=stream[:16],
             label=label,
             track_id=track_id,

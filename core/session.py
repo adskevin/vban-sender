@@ -1,13 +1,17 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from core.emitter import VBANEmitter
+
+DeviceKind = Literal["input", "output"]
 
 
 @dataclass
 class TrackSettings:
     enabled: bool
     device_index: int
+    device_kind: DeviceKind
     stream_name: str
     label: str
     track_id: str
@@ -41,6 +45,7 @@ class TransmissionSession:
                 continue
             emitter = VBANEmitter(
                 device_index=track.device_index,
+                device_kind=track.device_kind,
                 receiver_ip=self._receiver_ip,
                 receiver_port=self._receiver_port,
                 stream_name=track.stream_name,

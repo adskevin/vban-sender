@@ -1,9 +1,10 @@
 import queue
 import socket
+import sys
 import threading
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import sounddevice as sd
@@ -22,6 +23,8 @@ SAMPLES_PER_FRAME = 128
 DTYPE = "int16"
 METER_INTERVAL_SEC = 1.0 / 30.0
 
+DeviceKind = Literal["input", "output"]
+
 
 class VBANEmitter:
     def __init__(
@@ -30,11 +33,13 @@ class VBANEmitter:
         receiver_ip: str,
         receiver_port: int,
         stream_name: str,
+        device_kind: DeviceKind = "input",
         track_label: str = "",
         on_error: Callable[[str], None] | None = None,
         on_level: Callable[[float], None] | None = None,
     ) -> None:
         self._device_index = device_index
+        self._device_kind = device_kind
         self._receiver_ip = receiver_ip
         self._receiver_port = receiver_port
         self._stream_name = stream_name[:16]
@@ -155,12 +160,25 @@ class VBANEmitter:
     def _resolve_channels(self) -> int:
         try:
             dev = sd.query_devices(self._device_index)
-            max_in = int(dev["max_input_channels"])
-        except Exception:
+            if self._device_kind == "output":
+                max_ch = int(dev["max_output_channels"])
+                if max_ch < 1:
+                    raise ValueError("Dispositivo de saída sem canais")
+            else:
+                max_ch = int(dev["max_input_channels"])
+                if max_ch < 1:
+                    raise ValueError("Dispositivo sem canais de entrada")
+            return min(CHANNELS, max_ch)
+        except Exception as exc:
+            if isinstance(exc, ValueError):
+                raise
             return CHANNELS
-        if max_in < 1:
-            raise ValueError("Dispositivo sem canais de entrada")
-        return min(CHANNELS, max_in)
+
+    def _windows_output_error(self) -> str:
+        return (
+            "Não foi possível capturar esta saída de áudio. "
+            "Habilite Stereo Mix ou escolha um dispositivo na seção Entrada."
+        )
 
     def _run(self) -> None:
         try:
@@ -186,7 +204,10 @@ class VBANEmitter:
                     break
                 wait.wait(0.05)
         except Exception as exc:
-            self._report_error(str(exc))
+            if self._device_kind == "output" and sys.platform == "win32":
+                self._report_error(self._windows_output_error())
+            else:
+                self._report_error(str(exc))
         finally:
             with self._lock:
                 self._running = False

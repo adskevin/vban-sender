@@ -38,10 +38,14 @@ O app envia até **dois streams VBAN** na mesma porta UDP, com nomes diferentes:
 
 ### Escolha do dispositivo
 
-- **Linux (desktop):** no combo de desktop, escolha **Monitor of …** (PulseAudio/PipeWire).
-- **Windows (desktop):** habilite **Stereo Mix** nas configurações de som, ou selecione um dispositivo com “loopback” / “Stereo Mix” na lista. Se a lista mostrar todas as entradas, use a dica exibida na interface.
+Ambas as faixas usam o mesmo menu setorizado:
 
-- **Microfone:** lista apenas entradas que não são monitor/loopback.
+- **── Entrada ──** — microfones, Stereo Mix, Monitor of …
+- **── Saída ──** — alto-falantes e dispositivos de reprodução
+
+**Linux:** ao escolher um item na seção **Saída**, o app tenta usar automaticamente o **Monitor** correspondente (PulseAudio/PipeWire). Você também pode escolher diretamente um monitor na seção Entrada.
+
+**Windows:** a seção **Saída** pode não capturar áudio em todos os PCs (limitação do driver). Nesse caso, habilite **Stereo Mix** e escolha um dispositivo na seção **Entrada**.
 
 No PC receptor (OBS), adicione **duas fontes VBAN** — uma para cada nome de stream (`Desktop`, `Mic`, ou os nomes que você configurou).
 
